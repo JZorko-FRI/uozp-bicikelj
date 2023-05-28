@@ -34,7 +34,11 @@ def compute_distance_matrix(df_metadata):
 
 
 if __name__ == "__main__":
-    df_metadata = pd.read_csv('data/bicikelj_metadata.csv', sep='\t')
+    """
+    Use Google Maps API to compute distance matrix between stations.
+    More accurate than using Euclidean distance.
+    """
+    df_metadata = pd.read_csv('../data/bicikelj_metadata.csv', sep='\t')
 
     df_metadata.rename(columns={
         'postaja': 'Station Name',
@@ -48,7 +52,7 @@ if __name__ == "__main__":
 
     df_distances = compute_distance_matrix(df_metadata)
 
-    df_distances.to_csv('data/bicikelj_distances.csv', index=True)
+    df_distances.to_csv('../data/bicikelj_distances.csv', index=True)
 
     sns.heatmap(df_distances, fmt='.0f', cmap='rocket', annot=True)
     plt.show()

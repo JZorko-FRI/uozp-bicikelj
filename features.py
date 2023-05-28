@@ -136,12 +136,13 @@ def get_traffic_factor(df, df_train=None):
     Returns the traffic factor (how much traffic there is) of the departure time.
     """
     time_of_day = df['TimeOfDay']
-    morning = ((5 * 3600 < time_of_day) & (time_of_day < 8 * 3600)).astype(float)
-    midday = ((8 * 3600 < time_of_day) & (time_of_day < 13 * 3600)).astype(float)
-    afternoon = ((13 * 3600 < time_of_day) & (time_of_day < 17 * 3600)).astype(float)
-    evening = ((17 * 3600 < time_of_day) & (time_of_day < 21 * 3600)).astype(float)
+    morning = ((6 * 3600 < time_of_day) & (time_of_day < 8 * 3600)).astype(float)
+    midday = ((8 * 3600 < time_of_day) & (time_of_day < 14.5 * 3600)).astype(float)
+    rush = ((14.5 * 3600 < time_of_day) & (time_of_day < 15.5 * 3600)).astype(float)
+    afternoon = ((15.5 * 3600 < time_of_day) & (time_of_day < 17.5 * 3600)).astype(float)
+    evening = ((17.5 * 3600 < time_of_day) & (time_of_day < 21 * 3600)).astype(float)
     # Return weighted sum, weights derived empirically
-    return morning * 4 + midday * 0.5 + afternoon * 3 + evening * 1
+    return morning * 4 + midday * 1 + rush * 4 + afternoon * 3 + evening * 1
 
 def get_binary_part_of_day(df, df_train=None):
     """
@@ -150,11 +151,12 @@ def get_binary_part_of_day(df, df_train=None):
     """
     columns = {
         'earlyNight': (0, 6),
-        'morning': (6, 9),
-        'midday': (9, 15),
-        'afternoon': (15, 18),
-        'evening': (18, 21),
-        'lateNight': (21, 24)
+        'morning': (6, 8),
+        'midday': (8, 14.5),
+        'rush': (14.5, 15.5),
+        'afternoon': (15.5, 17.5),
+        'evening': (17.5, 20),
+        'lateNight': (20, 24)
     }
     time_of_day = df['TimeOfDay']
     num_rows = df.shape[0]
@@ -283,23 +285,54 @@ def get_8_hours_ago(df : pd.DataFrame, df_train=None):
 
     return merged[constants.TARGET + '_y']
 
+def get_1_week_ago(df : pd.DataFrame, df_train=None):
+    """
+    Returns the amount of bikes on this station 60 minutes ago.
+    """
+    relevant = [constants.TIMESTAMP, constants.TARGET]
+    df = df.copy().filter(relevant)
+    df_train = df_train.copy().filter(relevant)
+    df_train[constants.TIMESTAMP] = df_train[constants.TIMESTAMP] + pd.Timedelta(days=7)
+    df_train['FoundTimestamp'] = df_train[constants.TIMESTAMP]
+    merged = pd.merge_asof(df, df_train, on=constants.TIMESTAMP, direction='nearest', suffixes=('', '_y'))
+
+    return merged[constants.TARGET + '_y']
+
+def get_1_week_ahead(df : pd.DataFrame, df_train=None):
+    """
+    Returns the amount of bikes on this station 60 minutes ago.
+    """
+    relevant = [constants.TIMESTAMP, constants.TARGET]
+    df = df.copy().filter(relevant)
+    df_train = df_train.copy().filter(relevant)
+    df_train[constants.TIMESTAMP] = df_train[constants.TIMESTAMP] - pd.Timedelta(days=7)
+    df_train['FoundTimestamp'] = df_train[constants.TIMESTAMP]
+    merged = pd.merge_asof(df, df_train, on=constants.TIMESTAMP, direction='nearest', suffixes=('', '_y'))
+
+    return merged[constants.TARGET + '_y']
+
 def get_weather_data(df, df_train=False):
     # Available: količina padavin [mm],dež,nevihta,sneg,sodra,poledica,padavine,snežna odeja
     boolean = [
-        # 'dež',
-        # 'nevihta',
-        # 'sneg',
+        'dež',
+        'nevihta',
+        'sneg',
         # 'sodra',
-        # 'poledica',
+        'poledica',
         # 'padavine', 
         # 'snežna odeja'
     ]
     df_weather = df.filter([
-        'količina padavin [mm]',
+        # 'količina padavin [mm]',
     ] + boolean)
     for col in boolean:
         df_weather[col] = df_weather[col].astype(int)
     return df_weather
+
+def get_distances(df, df_train=False):
+    n = constants.N_NEAREST
+    selected = ['Nearest_' + str(i) for i in range(n)]
+    return df.filter(selected)
                     
 features = {
     # 'Month': get_month,
@@ -311,7 +344,7 @@ features = {
     # 'Weekend': is_weekend,
     # 'Workday': is_workday,
     # 'Worktime': get_worktime,
-    # 'TrafficFactor': get_traffic_factor,
+    'TrafficFactor': get_traffic_factor,
     # 'HourAverage': get_hour_average,
     'QuarterHourAverage': get_quarterhour_average,
     # '5minAverage': get_5min_average,
@@ -321,24 +354,28 @@ features = {
     '90MinAgo': get_90_min_ago,
     '120MinAgo': get_120_min_ago,
     # '8HoursAgo': get_8_hours_ago,
+    '1WeekAgo': get_1_week_ago,
+    '1WeekAhead': get_1_week_ahead,
 }
 multi_features = {
-    # 'BinaryDayOfWeek': get_binary_days,
+    'BinaryDayOfWeek': get_binary_days,
     'BinaryMonth': get_binary_months,
-    'BinaryHour': get_binary_hours,
-    # 'BinaryQuarterHour': get_binary_quarterhours,
+    # 'BinaryHour': get_binary_hours,
+    'BinaryQuarterHour': get_binary_quarterhours,
     # 'Binary5min': get_binary_5min,
     'BinaryPartOfDay': get_binary_part_of_day,
     # 'TimeOfDayPoly': get_time_of_day_poly,
     # 'TimeOfDayMin': get_time_of_day_min_poly,
     'Weather': get_weather_data,
+    'Distances': get_distances,
 }
 combination_features = {
-    # 'Binary5minWeek': ['Binary5min', 'BinaryDayOfWeek'],
+    'BinaryQuarterHourWeek': ['BinaryQuarterHour', 'BinaryDayOfWeek'],
 }
 precomputed_features = {
     # 'TimeOfDay',
     # 'DayOfWeek',
+    'total_space',
 }
 
 
@@ -396,9 +433,9 @@ def _feature_combinations(dfs):
     -------
     iterable of tuples : (column_name, pd.Series)
     """
-    for feature_name, feature_vals in dfs[0].iteritems():
+    for feature_name, feature_vals in dfs[0].items():
         if len(dfs) == 2:
-            other_features = dfs[1].iteritems()
+            other_features = dfs[1].items()
         else:
             other_features = _feature_combinations(dfs[1:])
         for other_feature_name, other_feature_vals in other_features:
