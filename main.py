@@ -60,6 +60,7 @@ if __name__ == '__main__':
     # )
 
     # TODO build separate simple model across all routes, use it to prune outliers
+    # TODO build separate models for predicting 1 and 2 hours ahead
 
     # {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}
     TRAIN_HOURS = {0, 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23}

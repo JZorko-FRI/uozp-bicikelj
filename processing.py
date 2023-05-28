@@ -56,6 +56,7 @@ def preprocess_test(df : pd.DataFrame, df_metadata : pd.DataFrame, df_weather):
 
     # Construct this feature in preprocessing so it can be used for splitting
     df['DayOfWeek'] = features.get_day_of_week(df)
+    df['Month'] = features.get_month(df)
     
     # Precompute some features so other features can be efficiently computed from them
     df['TimeOfDay'] = utils.get_time_of_day(df[constants.TIMESTAMP])

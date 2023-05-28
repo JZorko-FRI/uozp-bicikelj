@@ -170,13 +170,11 @@ def predict(df_train, df_test, lr, *, split=None, labeled=False,
     else:
         predictions = _predict_together(df_train, df_test, lr, labeled, verbose)
 
-    # TODO evaluate
-    # # Do corrections using median value
-    # median = np.median(predictions)
+    # Round predictions to three decimals
+    predictions = predictions.round(3)
 
-    # difference = np.abs(predictions - median)
-    # # Take mean if difference is above threshold, or if prediction is negative
-    # predictions[(difference > 2000) | (predictions < 0)] = median
+    # Replace negative predictions with 0
+    predictions[predictions < 0] = 0
 
     # Evaluate end result
     if labeled:

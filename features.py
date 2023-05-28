@@ -270,6 +270,19 @@ def get_120_min_ago(df : pd.DataFrame, df_train=None):
 
     return merged[constants.TARGET + '_y']
 
+def get_8_hours_ago(df : pd.DataFrame, df_train=None):
+    """
+    Returns the amount of bikes on this station 60 minutes ago.
+    """
+    relevant = [constants.TIMESTAMP, constants.TARGET]
+    df = df.copy().filter(relevant)
+    df_train = df_train.copy().filter(relevant)
+    df_train[constants.TIMESTAMP] = df_train[constants.TIMESTAMP] + pd.Timedelta(hours=8)
+    df_train['FoundTimestamp'] = df_train[constants.TIMESTAMP]
+    merged = pd.merge_asof(df, df_train, on=constants.TIMESTAMP, direction='nearest', suffixes=('', '_y'))
+
+    return merged[constants.TARGET + '_y']
+
 def get_weather_data(df, df_train=False):
     # Available: količina padavin [mm],dež,nevihta,sneg,sodra,poledica,padavine,snežna odeja
     boolean = [
@@ -294,27 +307,28 @@ features = {
     # 'DayOfMonth': get_day_of_month,
     # 'TimeOfDayPoly': get_time_of_day_poly,
     # 'TimeOfDayMinPoly': get_time_of_day_min_poly,
-    # 'GeneralHoliday': is_general_holiday,
+    'GeneralHoliday': is_general_holiday,
     # 'Weekend': is_weekend,
     # 'Workday': is_workday,
     # 'Worktime': get_worktime,
     # 'TrafficFactor': get_traffic_factor,
     # 'HourAverage': get_hour_average,
-    # 'QuarterHourAverage': get_quarterhour_average,
+    'QuarterHourAverage': get_quarterhour_average,
     # '5minAverage': get_5min_average,
     # '1minAverage': get_1min_average,
-    # 'RouteAverage': get_routes_average,
+    'RouteAverage': get_routes_average,
     '60MinAgo': get_60_min_ago,
     '90MinAgo': get_90_min_ago,
     '120MinAgo': get_120_min_ago,
+    # '8HoursAgo': get_8_hours_ago,
 }
 multi_features = {
     # 'BinaryDayOfWeek': get_binary_days,
-    # 'BinaryMonth': get_binary_months,
-    # 'BinaryHour': get_binary_hours,
+    'BinaryMonth': get_binary_months,
+    'BinaryHour': get_binary_hours,
     # 'BinaryQuarterHour': get_binary_quarterhours,
     # 'Binary5min': get_binary_5min,
-    # 'BinaryPartOfDay': get_binary_part_of_day,
+    'BinaryPartOfDay': get_binary_part_of_day,
     # 'TimeOfDayPoly': get_time_of_day_poly,
     # 'TimeOfDayMin': get_time_of_day_min_poly,
     'Weather': get_weather_data,
@@ -324,6 +338,7 @@ combination_features = {
 }
 precomputed_features = {
     # 'TimeOfDay',
+    # 'DayOfWeek',
 }
 
 
