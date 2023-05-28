@@ -45,6 +45,15 @@ def MAE(y_true, y_pred):
     """
     mean = np.mean(np.abs(y_true - y_pred))
     # Sometimes return type is array
-    if mean.shape != ():
+    if hasattr(mean, 'shape') and mean.shape != ():
         mean = mean[0]
     return round(mean, 3)
+
+def construct_query(values, columns):
+    """
+    Construct query for selecting data from a split.
+    """
+    conditions = []
+    for value, column in zip(values, columns):
+        conditions.append(f'`{column}` == {repr(value)}')
+    return ' & '.join(conditions)

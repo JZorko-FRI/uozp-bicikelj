@@ -5,7 +5,7 @@ import utils
 import features
 import constants
 
-def split(df):
+def split(df : pd.DataFrame):
     """
     Split initial dataset where each column is a station
     into a dictionary of datasets of one station each.
@@ -20,13 +20,13 @@ def split(df):
             df_station = df.filter([constants.TIMESTAMP, col])
             df_station.rename(columns={col: constants.TARGET}, inplace=True)
             # Add column with station name so metadata can be added
-            df_station[constants.STATION] = pd.Categorical(col)
+            df_station[constants.STATION] = col
             # Add dataframe to dictionary
             by_station.append(df_station)
     # Concatenate all dataframes into one
     return pd.concat(by_station, ignore_index=True)
 
-def combine(df):
+def combine(df : pd.DataFrame):
     """
     Undo split of dataset where each column is a station
     into a single dataframe with stations as columns.
@@ -34,7 +34,7 @@ def combine(df):
     pivot = df.pivot(index=constants.TIMESTAMP, columns=constants.STATION, values=constants.TARGET)
     return pivot.set_index('timestamp')
 
-def add_metadata(df, df_metadata):
+def add_metadata(df : pd.DataFrame, df_metadata : pd.DataFrame):
     """
     Add metadata to dataframe.
     """
@@ -42,19 +42,25 @@ def add_metadata(df, df_metadata):
     return df
 
 # Preprocessing
-def preprocess_test(df, df_metadata):
+def preprocess_test(df : pd.DataFrame, df_metadata : pd.DataFrame):
     # Add metadata
     df = add_metadata(df, df_metadata)
 
+    # Convert departure time strings to datetime
+    df[constants.TIMESTAMP] = pd.to_datetime(df[constants.TIMESTAMP])
+
+    # Construct this feature in preprocessing so it can be used for splitting
+    df['DayOfWeek'] = features.get_day_of_week(df)
+    
+    # This feature is used by many others, prevent recomputation
+    df['TimeOfDay'] = utils.get_time_of_day(df[constants.TIMESTAMP])
+    
     return df
 
     # # Set columns with repeating values to categorical
-    # # Convert departure time strings to datetime
-    # df['Departure time'] = pd.to_datetime(df['Departure time'])
     # # Compute time of day in seconds for easier computation
-    # df['Departure TimeOfDay'] = get_time_of_day(df['Departure time'])
-    # df['Departure TimeOfDayMin'] = get_time_of_day_minutes(df['Departure time'])
-    # df['Departure hour'] = df['Departure time'].dt.hour
+    # df['Departure TimeOfDayMin'] = get_time_of_day_minutes(df[constants.TIMESTAMP])
+    # df['Departure hour'] = df[constants.TIMESTAMP].dt.hour
     # df['Departure quarterhour'] = df['Departure TimeOfDay'] // (15 * 60)
     # df['Departure 5min'] = df['Departure TimeOfDay'] // (5 * 60)
     # df['Departure 1min'] = df['Departure TimeOfDay'] // (60)
@@ -69,7 +75,7 @@ def preprocess_test(df, df_metadata):
     #     df[column] = df[column].astype('category')
     # return df
 
-def preprocess_train(df, df_metadata):
+def preprocess_train(df : pd.DataFrame, df_metadata : pd.DataFrame):
     # Repeat all preprocessing done on test data
     df = preprocess_test(df, df_metadata)
     return df

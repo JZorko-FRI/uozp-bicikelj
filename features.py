@@ -75,7 +75,7 @@ def get_time_of_day_poly(df, df_train=None):
     """
     Returns the departure time of day in seconds.
     """
-    timeOfDay = df['Departure TimeOfDay']
+    timeOfDay = df['TimeOfDay']
     num_rows = df.shape[0]
     columns = list(range(1, 2))
     num_cols = len(columns)
@@ -88,7 +88,7 @@ def get_time_of_day_min_poly(df, df_train=None):
     """
     Returns the departure time of day in minutes.
     """
-    timeOfDay = df['Departure TimeOfDayMin']
+    timeOfDay = df['TimeOfDay'] // 60
     num_rows = df.shape[0]
     columns = list(range(1, 2))
     num_cols = len(columns)
@@ -256,7 +256,7 @@ def get_traffic_factor(df, df_train=None):
     """
     Returns the traffic factor (how much traffic there is) of the departure time.
     """
-    time_of_day = df['Departure TimeOfDay']
+    time_of_day = df['TimeOfDay']
     morning = ((5 * 3600 < time_of_day) & (time_of_day < 8 * 3600)).astype(float)
     midday = ((8 * 3600 < time_of_day) & (time_of_day < 13 * 3600)).astype(float)
     afternoon = ((13 * 3600 < time_of_day) & (time_of_day < 17 * 3600)).astype(float)
@@ -277,7 +277,7 @@ def get_binary_part_of_day(df, df_train=None):
         'evening': (18, 21),
         'lateNight': (21, 24)
     }
-    time_of_day = df['Departure TimeOfDay']
+    time_of_day = df['TimeOfDay']
     num_rows = df.shape[0]
     num_cols = len(columns)
     matrix = np.zeros((num_rows, num_cols))
@@ -289,7 +289,7 @@ def get_worktime(df, df_train=None):
     """
     Returns 1 if the departure time is within usual work hours, 0 otherwise.
     """
-    time_of_day = df['Departure TimeOfDay']
+    time_of_day = df['TimeOfDay']
     worktime = ((4 * 3600 < time_of_day) & (time_of_day < 18 * 3600))
     # Times derived empirically
     return (worktime).astype(int)
@@ -362,8 +362,8 @@ features = {
     # 'DayOfMonth': get_day_of_month,
     'TimeOfDayMin': get_time_of_day_min_poly,
     'TimeOfDaySec': get_time_of_day_poly,
-    'GeneralHoliday': is_general_holiday,
-    'SchoolHoliday': is_school_holiday,
+    # 'GeneralHoliday': is_general_holiday,
+    # 'SchoolHoliday': is_school_holiday,
     # 'SchoolDay': is_school_day,
     # 'Weekend': is_weekend,
     # 'Workday': is_workday,
@@ -401,7 +401,11 @@ combination_features = {
 # Feature construction
 used_features = set()
 
-def construct_features(df, df_train, test_only=False):
+def construct_features(df, df_train):
+    """
+    Construct features on the given dataframe.
+    Needs the training dataframe to match vocabulary, as test might not include all values.
+    """
     df = df.copy().reset_index(drop=True)
     # Features that add single column
     for name, feature in features.items():
@@ -463,8 +467,8 @@ def select_features(df):
     """
     return df.filter(items=list(used_features))
 
-def select_constants(df):
+def select_target(df):
     """
-    Returns the constants column.
+    Returns the target column.
     """
     return df[constants.TARGET]

@@ -13,6 +13,7 @@ from xgboost import XGBRegressor
 
 import processing
 import prediction
+import constants
 
 np.set_printoptions(suppress=True)
 
@@ -28,7 +29,7 @@ if __name__ == '__main__':
     # Read data
     df_test_raw = pd.read_csv('data/bicikelj_test.csv', sep=',')
     df_train_raw = pd.read_csv('data/bicikelj_train.csv', sep=',')
-    df_metadata = pd.read_csv('data/bicikelj_metadata.csv', sep=',')
+    df_metadata = pd.read_csv('data/bicikelj_metadata.csv', sep='\t')
 
     # Split data by station
     df_test_split = processing.split(df_test_raw)
@@ -39,38 +40,38 @@ if __name__ == '__main__':
     df_train = processing.preprocess_train(df_train_split, df_metadata)
 
     # Set the used prediction method
-    # model = PredictionModel(
+    # model = prediction.PredictionModel(
     #     Ridge(alpha=1, random_state=42),
-    #     split=True
+    #     split=[constants.STATION]
     # )
     model = prediction.PredictionModel(
         XGBRegressor(n_estimators=50, nthread=1, random_state=42),
-        split=True
+        split=[constants.STATION], parallel=False
     )
-    # model = PredictionModel(
+    # model = prediction.PredictionModel(
     #     MLPRegressor(hidden_layer_sizes=(50,50), max_iter=500, n_iter_no_change=10,
     #                  verbose=0, random_state=42),
-    #     split=True
+    #     split=[constants.STATION]
     # )
 
     # TODO build separate simple model across all routes, use it to prune outliers
 
-    EVAL_MONTHS = {11}
-    TRAIN_MONTHS = {1, 2, 3, 10}
+    TRAIN_MONTHS = {8, 9}
+    EVAL_MONTHS = {10}
 
     # Local evaluation on one month
     if 'evaluate' in sys.argv:
         print('Evaluating on labeled data')
         # Use one month as test data and the rest for training
-        df_tested_month = df_train[df_train['Departure time'].dt.month.isin(EVAL_MONTHS)].copy().reset_index()
-        df_train_months = df_train[df_train['Departure time'].dt.month.isin(TRAIN_MONTHS)].copy().reset_index()
-        model(df_train_months, df_tested_month, labeled=True, verbose=True, parallel=True)
+        df_tested_month = df_train[df_train[constants.TIMESTAMP].dt.month.isin(EVAL_MONTHS)].copy().reset_index()
+        df_train_months = df_train[df_train[constants.TIMESTAMP].dt.month.isin(TRAIN_MONTHS)].copy().reset_index()
+        model(df_train_months, df_tested_month, labeled=True, verbose=True)
 
     # Predictions on proper test set
     if 'predict' in sys.argv:
         print('Predicting on unlabeled data')
-        train_months = df_train['Departure time'].dt.month.isin(TRAIN_MONTHS)
-        eval_months = df_train['Departure time'].dt.month.isin(EVAL_MONTHS)
+        train_months = df_train[constants.TIMESTAMP].dt.month.isin(TRAIN_MONTHS)
+        eval_months = df_train[constants.TIMESTAMP].dt.month.isin(EVAL_MONTHS)
         train_and_eval = train_months | eval_months
         df_train_months = df_train[train_and_eval].copy().reset_index()
         predictions = model(df_train_months, df_test, verbose=True)
