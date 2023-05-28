@@ -4,14 +4,8 @@ import numpy as np
 import constants
 
 GENERAL_HOLIDAYS = {
-    (1, 1), (2, 1), (8, 2), (8, 4), (9, 4), (27, 4), (1, 5), (2, 5),
+    (1, 1), (2, 1), (8, 2), (18, 4), (27, 4), (1, 5), (2, 5),
     (25, 6), (15, 8), (31, 10), (1, 11), (25, 12), (26, 12),
-}
-
-SCHOOL_HOLIDAYS = {
-    (20, 2), (21, 2), (22, 2), (23, 2), (24, 2),
-    (30, 4), (29, 10), (30, 10), (2, 11), (24, 12),
-    (27, 12), (28, 12), (29, 12), (30, 12), (31, 12)
 }
 
 # Feature definitions
@@ -26,24 +20,6 @@ def is_general_holiday(df, df_train=None):
     Returns 1 if the departure date is a general holiday, 0 otherwise.
     """
     return df[constants.TIMESTAMP].map(lambda time: (time.month, time.day) in GENERAL_HOLIDAYS).astype(int)
-
-def is_school_holiday(df, df_train=None):
-    """
-    Returns 1 if the departure date is a school holiday, 0 otherwise.
-    """
-    other_holidays = df[constants.TIMESTAMP].map(lambda time: (time.month, time.day) in SCHOOL_HOLIDAYS)
-    summer_holidays = df[constants.TIMESTAMP].dt.month.isin([7, 8, 9])
-    return (other_holidays | summer_holidays).astype(int)
-
-def is_school_day(df, df_train=None):
-    """
-    Returns 1 if the departure date is a school day, 0 otherwise.
-    """
-    weekends = is_weekend(df)
-    school_holidays = is_school_holiday(df)
-    general_holidays = is_general_holiday(df)
-    holidays = school_holidays | general_holidays
-    return (~weekends & ~holidays).astype(int)
 
 def is_weekend(df, df_train=None):
     """
@@ -77,180 +53,83 @@ def get_time_of_day_poly(df, df_train=None):
     """
     timeOfDay = df['TimeOfDay']
     num_rows = df.shape[0]
-    columns = list(range(1, 2))
-    num_cols = len(columns)
+    powers = [3]
+    num_cols = len(powers)
     matrix = np.zeros((num_rows, num_cols))
-    for i, power in enumerate(columns):
+    for i, power in enumerate(powers):
         matrix[:, i ] = np.power(timeOfDay, power)
-    return pd.DataFrame(matrix, columns=columns)
+    return pd.DataFrame(matrix, columns=powers)
 
 def get_time_of_day_min_poly(df, df_train=None):
     """
     Returns the departure time of day in minutes.
     """
-    timeOfDay = df['TimeOfDay'] // 60
+    timeOfDay = df['TimeOfDayMin']
     num_rows = df.shape[0]
-    columns = list(range(1, 2))
-    num_cols = len(columns)
+    powers = [3]
+    num_cols = len(powers)
     matrix = np.zeros((num_rows, num_cols))
-    for i, power in enumerate(columns):
+    for i, power in enumerate(powers):
         matrix[:, i ] = np.power(timeOfDay, power)
-    return pd.DataFrame(matrix, columns=columns)
+    return pd.DataFrame(matrix, columns=powers)
 
-def get_binary_drivers(df, df_train):
-    """
-    Returns the binarised drivers.
-    """
-    num_rows = df.shape[0]
-    columns = list(df_train['Driver ID'].unique())
-    num_cols = len(columns)
-    matrix = np.zeros((num_rows, num_cols))
-    for i, driver in enumerate(columns):
-        matrix[:, i] = (df['Driver ID'] == driver).astype(int)
-    return pd.DataFrame(matrix, columns=columns, dtype=int)
-
-def get_binary_routes(df, df_train):
-    """
-    Returns the binarised routes.
-    """
-    num_rows = df.shape[0]
-    columns = list(df_train['Route'].unique())
-    num_cols = len(columns)
-    matrix = np.zeros((num_rows, num_cols))
-    for i, route in enumerate(columns):
-        matrix[:, i] = (df['Route'] == route).astype(int)
-    return pd.DataFrame(matrix, columns=columns, dtype=int)
-
-def get_binary_directions(df, df_train):
-    """
-    Returns the binarised directions.
-    """
-    num_rows = df.shape[0]
-    columns = list(df_train['Route Direction'].unique())
-    num_cols = len(columns)
-    matrix = np.zeros((num_rows, num_cols))
-    for i, route in enumerate(columns):
-        matrix[:, i] = (df['Route Direction'] == route).astype(int)
-    return pd.DataFrame(matrix, columns=columns, dtype=int)
-
-def get_routes_average_speed(df, df_train):
+def get_routes_average(df, df_train):
     """
     Returns the routes average speeds.
     """
-    average_speeds = df_train.groupby('Route').aggregate({constants.TARGET: np.mean})
+    average_speeds = df_train.groupby(constants.STATION).aggregate({constants.TARGET: np.mean})
     total_average_speed = average_speeds[constants.TARGET].mean()
-    durations = pd.merge(df.filter(['Route']), average_speeds, on='Route', how='left')[constants.TARGET]
+    durations = pd.merge(df.filter([constants.STATION]), average_speeds, on=constants.STATION, how='left')[constants.TARGET]
     durations[durations.isna()] = total_average_speed
     return durations
 
-def get_routeid_average_speed(df, df_train):
-    """
-    Returns the direction average speeds.
-    """
-    average_speeds = df_train.groupby('RouteID').aggregate({constants.TARGET: np.mean})
-    total_average_speed = average_speeds[constants.TARGET].mean()
-    durations = pd.merge(df.filter(['RouteID']), average_speeds, on='RouteID', how='left')[constants.TARGET]
-    durations[durations.isna()] = total_average_speed
-    return durations
-
-def get_drivers_average_speed(df, df_train):
-    """
-    Returns the drivers average speeds.
-    """
-    average_speeds = df_train.groupby('Driver ID').aggregate({constants.TARGET: np.mean})
-    total_average_speed = average_speeds[constants.TARGET].mean()
-    durations = pd.merge(df.filter(['Driver ID']), average_speeds, on='Driver ID', how='left')[constants.TARGET]
-    durations[durations.isna()] = total_average_speed
-    return durations
-
-def get_bus_average_speed(df, df_train):
-    """
-    Returns the bus average speeds.
-    """
-    average_speeds = df_train.groupby('Registration').aggregate({constants.TARGET: np.mean})
-    total_average_speed = average_speeds[constants.TARGET].mean()
-    durations = pd.merge(df.filter(['Registration']), average_speeds,
-                         on='Registration', how='left')[constants.TARGET]
-    durations[durations.isna()] = total_average_speed
-    return durations
-
-def get_hour_average_speed(df, df_train):
+def get_hour_average(df, df_train):
     """
     Returns the hour average speeds.
     """
-    average_speeds = df_train.groupby('Departure hour').aggregate({constants.TARGET: np.mean})
+    average_speeds = df_train.groupby('TimeOfDayHour').aggregate({constants.TARGET: np.mean})
     total_average_speed = average_speeds[constants.TARGET].mean()
-    durations = pd.merge(df.filter(['Departure hour']), average_speeds,
-                         on='Departure hour', how='left')[constants.TARGET]
+    durations = pd.merge(df.filter(['TimeOfDayHour']), average_speeds,
+                         on='TimeOfDayHour', how='left')[constants.TARGET]
     durations[durations.isna()] = total_average_speed
     return durations
 
-def get_quarterhour_average_speed(df, df_train):
+def get_quarterhour_average(df, df_train):
     """
     Returns the hour average speeds.
     """
-    average_speeds = df_train.groupby('Departure quarterhour').aggregate({constants.TARGET: np.mean})
+    average_speeds = df_train.groupby('TimeOfDayQuarterHour').aggregate({constants.TARGET: np.mean})
     total_average_speed = average_speeds[constants.TARGET].mean()
-    durations = pd.merge(df.filter(['Departure quarterhour']), average_speeds,
-                         on='Departure quarterhour', how='left')[constants.TARGET]
+    durations = pd.merge(df.filter(['TimeOfDayQuarterHour']), average_speeds,
+                         on='TimeOfDayQuarterHour', how='left')[constants.TARGET]
     durations[durations.isna()] = total_average_speed
     return durations
 
-def get_5min_average_speed(df, df_train):
+def get_5min_average(df, df_train):
     """
     Returns the 5min average speeds.
     """
-    average_speeds = df_train.groupby('Departure 5min').aggregate({constants.TARGET: np.mean})
+    average_speeds = df_train.groupby('TimeOfDay5Min').aggregate({constants.TARGET: np.mean})
     total_average_speed = average_speeds[constants.TARGET].mean()
-    durations = pd.merge(df.filter(['Departure 5min']), average_speeds,
-                         on='Departure 5min', how='left')[constants.TARGET]
-    quarter_average = get_quarterhour_average_speed(df, df_train)
+    durations = pd.merge(df.filter(['TimeOfDay5Min']), average_speeds,
+                         on='TimeOfDay5Min', how='left')[constants.TARGET]
+    quarter_average = get_quarterhour_average(df, df_train)
     durations[durations.isna()] = quarter_average[durations.isna()]
     durations[durations.isna()] = total_average_speed
     return durations
 
-def get_1min_average_speed(df, df_train):
+def get_1min_average(df, df_train):
     """
     Returns the 5min average speeds.
     """
-    average_speeds = df_train.groupby('Departure 1min').aggregate({constants.TARGET: np.mean})
+    average_speeds = df_train.groupby('TimeOfDayMin').aggregate({constants.TARGET: np.mean})
     total_average_speed = average_speeds[constants.TARGET].mean()
-    durations = pd.merge(df.filter(['Departure 1min']), average_speeds,
-                         on='Departure 1min', how='left')[constants.TARGET]
-    five_min_average = get_5min_average_speed(df, df_train)
+    durations = pd.merge(df.filter(['TimeOfDayMin']), average_speeds,
+                         on='TimeOfDayMin', how='left')[constants.TARGET]
+    five_min_average = get_5min_average(df, df_train)
     durations[durations.isna()] = five_min_average[durations.isna()]
     durations[durations.isna()] = total_average_speed
     return durations
-
-def get_binary_busses(df, df_train):
-    """
-    Returns the binarised busses.
-    """
-    num_rows = df.shape[0]
-    columns = list(df_train['Registration'].unique())
-    num_cols = len(columns)
-    matrix = np.zeros((num_rows, num_cols))
-    for i, bus in enumerate(columns):
-        matrix[:, i] = (df['Registration'] == bus).astype(int)
-    return pd.DataFrame(matrix, columns=columns, dtype=int)
-
-def get_season(df, df_train=None):
-    """
-    Returns the season of the departure time.
-    """
-    return df['Season']
-
-def get_binary_season(df, df_train=None):
-    """
-    Returns the binarised season.
-    """
-    num_rows = df.shape[0]
-    columns = list(range(4))
-    num_cols = len(columns)
-    matrix = np.zeros((num_rows, num_cols))
-    for i, season in enumerate(columns):
-        matrix[:, i] = (df['Season'] == season).astype(int)
-    return pd.DataFrame(matrix, columns=columns, dtype=int)
 
 def get_traffic_factor(df, df_train=None):
     """
@@ -315,7 +194,7 @@ def get_binary_quarterhours(df, df_train=None):
     num_cols = len(columns)
     matrix = np.zeros((num_rows, num_cols))
     for quarter in columns:
-        matrix[:, quarter - 1] = (df['Departure quarterhour'] == quarter).astype(int)
+        matrix[:, quarter - 1] = (df['TimeOfDayQuarterHour'] == quarter).astype(int)
     return pd.DataFrame(matrix, columns=columns, dtype=int)
 
 
@@ -328,7 +207,7 @@ def get_binary_5min(df, df_train=None):
     num_cols = len(columns)
     matrix = np.zeros((num_rows, num_cols))
     for mins in columns:
-        matrix[:, mins - 1] = (df['Departure 5min'] == mins).astype(int)
+        matrix[:, mins - 1] = (df['TimeOfDay5Min'] == mins).astype(int)
     return pd.DataFrame(matrix, columns=columns, dtype=int)
 
 def get_binary_days(df, df_train=None):
@@ -356,27 +235,60 @@ def get_binary_months(df, df_train=None):
         matrix[:, month - 1] = (df[constants.TIMESTAMP].dt.month == month).astype(int)
     return pd.DataFrame(matrix, columns=columns, dtype=int)
 
+def get_60_min_ago(df : pd.DataFrame, df_train=None):
+    """
+    Returns the amount of bikes on this station 60 minutes ago.
+    """
+    relevant = [constants.TIMESTAMP, constants.TARGET]
+    df = df.copy().filter(relevant)
+    df_train = df_train.copy().filter(relevant)
+    df_train[constants.TIMESTAMP] = df_train[constants.TIMESTAMP] + pd.Timedelta(minutes=60)
+    merged = pd.merge_asof(df, df_train, on=constants.TIMESTAMP, direction='nearest', suffixes=('', '_y'))
+    return merged[constants.TARGET + '_y']
+
+def get_90_min_ago(df : pd.DataFrame, df_train=None):
+    """
+    Returns the amount of bikes on this station 60 minutes ago.
+    """
+    relevant = [constants.TIMESTAMP, constants.TARGET]
+    df = df.copy().filter(relevant)
+    df_train = df_train.copy().filter(relevant)
+    df_train[constants.TIMESTAMP] = df_train[constants.TIMESTAMP] + pd.Timedelta(minutes=90)
+    merged = pd.merge_asof(df, df_train, on=constants.TIMESTAMP, direction='nearest', suffixes=('', '_y'))
+    return merged[constants.TARGET + '_y']
+
+def get_120_min_ago(df : pd.DataFrame, df_train=None):
+    """
+    Returns the amount of bikes on this station 60 minutes ago.
+    """
+    relevant = [constants.TIMESTAMP, constants.TARGET]
+    df = df.copy().filter(relevant)
+    df_train = df_train.copy().filter(relevant)
+    df_train[constants.TIMESTAMP] = df_train[constants.TIMESTAMP] + pd.Timedelta(minutes=120)
+    df_train['FoundTimestamp'] = df_train[constants.TIMESTAMP]
+    merged = pd.merge_asof(df, df_train, on=constants.TIMESTAMP, direction='nearest', suffixes=('', '_y'))
+
+    return merged[constants.TARGET + '_y']
+                    
 features = {
-    'Month': get_month,
-    'DayOfWeek': get_day_of_week,
+    # 'Month': get_month,
+    # 'DayOfWeek': get_day_of_week,
     # 'DayOfMonth': get_day_of_month,
-    'TimeOfDayMin': get_time_of_day_min_poly,
-    'TimeOfDaySec': get_time_of_day_poly,
+    # 'TimeOfDayPoly': get_time_of_day_poly,
+    # 'TimeOfDayMinPoly': get_time_of_day_min_poly,
     # 'GeneralHoliday': is_general_holiday,
-    # 'SchoolHoliday': is_school_holiday,
-    # 'SchoolDay': is_school_day,
     # 'Weekend': is_weekend,
     # 'Workday': is_workday,
     # 'Worktime': get_worktime,
     # 'TrafficFactor': get_traffic_factor,
-    # 'DriverAverageSpeed': get_drivers_average_speed,
-    # 'BusAverageSpeed': get_bus_average_speed,
-    # 'HourAverageSpeed': get_hour_average_speed,
-    # 'QuarterHourAverageSpeed': get_quarterhour_average_speed,
-    # '5minAverageSpeed': get_5min_average_speed,
-    # '1minAverageSpeed': get_1min_average_speed,
-    # 'RouteAverageSeed': get_routes_average_speed,
-    # 'DirectionAverageSpeed': get_routeid_average_speed,
+    # 'HourAverage': get_hour_average,
+    # 'QuarterHourAverage': get_quarterhour_average,
+    # '5minAverage': get_5min_average,
+    # '1minAverage': get_1min_average,
+    # 'RouteAverage': get_routes_average,
+    '60MinAgo': get_60_min_ago,
+    '90MinAgo': get_90_min_ago,
+    '120MinAgo': get_120_min_ago,
 }
 multi_features = {
     # 'BinaryDayOfWeek': get_binary_days,
@@ -386,15 +298,13 @@ multi_features = {
     # 'Binary5min': get_binary_5min,
     # 'BinaryPartOfDay': get_binary_part_of_day,
     # 'TimeOfDayPoly': get_time_of_day_poly,
-    # 'BinaryDriver': get_binary_drivers,
-    # 'BinaryBus': get_binary_busses,
-    # 'BinaryRoute': get_binary_routes,
-    # 'BinaryDirection': get_binary_directions,
-    # 'BinarySeason': get_binary_season,
     # 'TimeOfDayMin': get_time_of_day_min_poly,
 }
 combination_features = {
     # 'Binary5minWeek': ['Binary5min', 'BinaryDayOfWeek'],
+}
+precomputed_features = {
+    # 'TimeOfDay',
 }
 
 
@@ -434,6 +344,7 @@ def construct_features(df, df_train):
             i += 1
             if i % 50 == 0:
                 df = df.copy()
+    used_features.update(precomputed_features)
     return df
 
 def _feature_combinations(dfs):

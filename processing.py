@@ -31,8 +31,7 @@ def combine(df : pd.DataFrame):
     Undo split of dataset where each column is a station
     into a single dataframe with stations as columns.
     """
-    pivot = df.pivot(index=constants.TIMESTAMP, columns=constants.STATION, values=constants.TARGET)
-    return pivot.set_index('timestamp')
+    return df.pivot(index=constants.TIMESTAMP, columns=constants.STATION, values=constants.TARGET)
 
 def add_metadata(df : pd.DataFrame, df_metadata : pd.DataFrame):
     """
@@ -52,8 +51,12 @@ def preprocess_test(df : pd.DataFrame, df_metadata : pd.DataFrame):
     # Construct this feature in preprocessing so it can be used for splitting
     df['DayOfWeek'] = features.get_day_of_week(df)
     
-    # This feature is used by many others, prevent recomputation
+    # Precompute some features so other features can be efficiently computed from them
     df['TimeOfDay'] = utils.get_time_of_day(df[constants.TIMESTAMP])
+    df['TimeOfDayMin'] = utils.get_time_of_day_minutes(df[constants.TIMESTAMP])
+    df['TimeOfDay5Min'] = df['TimeOfDayMin'] // (5 * 60)
+    df['TimeOfDayQuarterHour'] = df['TimeOfDayMin'] // (15 * 60)
+    df['TimeOfDayHour'] = df[constants.TIMESTAMP].dt.hour
     
     return df
 

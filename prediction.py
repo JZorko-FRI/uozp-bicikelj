@@ -44,9 +44,12 @@ def _predict_route(df_train_split, df_test_split, lr, predictions,
         mae = utils.MAE(y_true, y_pred)
         # If verbose is float then treat it as threshold for printing
         if verbose is True or (isinstance(verbose, float) and mae > verbose):
-            print(split, f'({i}/{total_splits}):')
-            print(f'\tMAE: {mae}')
-            print(f'\tNum samples: {df_train_split.shape[0]}')
+            # Need to print all at once to avoid race conditions
+            to_print = []
+            to_print.append(f'{split} ({i}/{total_splits}):')
+            to_print.append(f'\tMAE: {mae}')
+            to_print.append(f'\tNum samples: {df_train_split.shape[0]}')
+            print('\n'.join(to_print))
     elif verbose:
         print(f'({i:03}/{total_splits}) ', end='\r')
     gc.collect()
@@ -68,14 +71,16 @@ def _predict_separate(df_train, df_test, lr, split, labeled, verbose, parralel):
     for i, split in combinations.iterrows():
         # Prepare query for exctacting current split
         query = utils.construct_query(split, split.index)
-        # Train can be queried directly
-        df_train_split = df_train.query(query)
-        
-        # TODO test data does not have all days of the week
         
         # We need the test mask later, so we store it here
         df_test_split_mask = df_test.eval(query)
         df_test_split = df_test[df_test_split_mask]
+        if df_test_split.shape[0] == 0:
+            # If there are no samples for this split, skip it
+            continue
+
+        # Train can be queried directly
+        df_train_split = df_train.query(query)
         # Append to args
         args.append((df_train_split, df_test_split, lr, predictions, query, 
                      df_test_split_mask,
@@ -181,7 +186,7 @@ def predict(df_train, df_test, lr, *, split=None, labeled=False,
         print('Overall MAE:', utils.MAE(y_true, predictions))
     
     # Required output format is microseconds
-    return predictions.round().astype(int)
+    return predictions
 
 class PredictionModel():
     """
