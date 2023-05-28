@@ -269,6 +269,24 @@ def get_120_min_ago(df : pd.DataFrame, df_train=None):
     merged = pd.merge_asof(df, df_train, on=constants.TIMESTAMP, direction='nearest', suffixes=('', '_y'))
 
     return merged[constants.TARGET + '_y']
+
+def get_weather_data(df, df_train=False):
+    # Available: količina padavin [mm],dež,nevihta,sneg,sodra,poledica,padavine,snežna odeja
+    boolean = [
+        # 'dež',
+        # 'nevihta',
+        # 'sneg',
+        # 'sodra',
+        # 'poledica',
+        # 'padavine', 
+        # 'snežna odeja'
+    ]
+    df_weather = df.filter([
+        'količina padavin [mm]',
+    ] + boolean)
+    for col in boolean:
+        df_weather[col] = df_weather[col].astype(int)
+    return df_weather
                     
 features = {
     # 'Month': get_month,
@@ -299,6 +317,7 @@ multi_features = {
     # 'BinaryPartOfDay': get_binary_part_of_day,
     # 'TimeOfDayPoly': get_time_of_day_poly,
     # 'TimeOfDayMin': get_time_of_day_min_poly,
+    'Weather': get_weather_data,
 }
 combination_features = {
     # 'Binary5minWeek': ['Binary5min', 'BinaryDayOfWeek'],

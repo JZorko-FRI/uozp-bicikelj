@@ -27,9 +27,11 @@ if __name__ == '__main__':
         exit(1)
 
     # Read data
-    df_test_raw = pd.read_csv('data/bicikelj_test.csv', sep=',')
-    df_train_raw = pd.read_csv('data/bicikelj_train.csv', sep=',')
+    df_test_raw = pd.read_csv('data/bicikelj_test.csv', sep=',', parse_dates=['timestamp'])
+    df_train_raw = pd.read_csv('data/bicikelj_train.csv', sep=',', parse_dates=['timestamp'])
     df_metadata = pd.read_csv('data/bicikelj_metadata.csv', sep='\t')
+    df_weather = pd.read_csv(constants.WEATHER_DATA_PATH, sep=',', 
+                             true_values=['da'], false_values=['ne'])
 
     original_column_order = list(df_train_raw.columns)
     original_column_order.remove(constants.TIMESTAMP)
@@ -39,8 +41,8 @@ if __name__ == '__main__':
     df_train_split = processing.split(df_train_raw)
 
     # Preprocess data and add features
-    df_test = processing.preprocess_test(df_test_split, df_metadata)
-    df_train = processing.preprocess_train(df_train_split, df_metadata)
+    df_test = processing.preprocess_test(df_test_split, df_metadata, df_weather)
+    df_train = processing.preprocess_train(df_train_split, df_metadata, df_weather)
 
     # Set the used prediction method
     model = prediction.PredictionModel(

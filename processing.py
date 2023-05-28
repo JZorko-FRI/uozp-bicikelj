@@ -40,13 +40,19 @@ def add_metadata(df : pd.DataFrame, df_metadata : pd.DataFrame):
     df = df.merge(df_metadata, on=constants.STATION)
     return df
 
+def add_weather_data(df : pd.DataFrame, df_weather : pd.DataFrame):
+    """
+    Add weather data to dataframe.
+    """
+    df['date'] = df[constants.TIMESTAMP].dt.strftime('%Y-%m-%d')
+    return df.merge(df_weather, left_on='date', right_on='valid')
+
 # Preprocessing
-def preprocess_test(df : pd.DataFrame, df_metadata : pd.DataFrame):
+def preprocess_test(df : pd.DataFrame, df_metadata : pd.DataFrame, df_weather):
     # Add metadata
     df = add_metadata(df, df_metadata)
-
-    # Convert departure time strings to datetime
-    df[constants.TIMESTAMP] = pd.to_datetime(df[constants.TIMESTAMP])
+    # Add weather data
+    df = add_weather_data(df, df_weather)
 
     # Construct this feature in preprocessing so it can be used for splitting
     df['DayOfWeek'] = features.get_day_of_week(df)
@@ -78,9 +84,9 @@ def preprocess_test(df : pd.DataFrame, df_metadata : pd.DataFrame):
     #     df[column] = df[column].astype('category')
     # return df
 
-def preprocess_train(df : pd.DataFrame, df_metadata : pd.DataFrame):
+def preprocess_train(df : pd.DataFrame, df_metadata : pd.DataFrame, df_weather):
     # Repeat all preprocessing done on test data
-    df = preprocess_test(df, df_metadata)
+    df = preprocess_test(df, df_metadata, df_weather)
     return df
     
     
