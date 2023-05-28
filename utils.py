@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 
-# Offset time of day so 0 is three oclock
-TIME_OFFSET_MIN = 3 * 60
+# Offset time of day by this many minutes
+TIME_OFFSET_MIN = 0
 
 def date_to_number(column):
     """

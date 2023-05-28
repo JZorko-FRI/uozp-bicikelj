@@ -1,23 +1,50 @@
 import numpy as np
 import pandas as pd
 
-from utils import *
+import utils
+import features
+import constants
 
-CATEGORICAL_COLS = ['Registration', 'Driver ID', 'Route', 'Route Direction', 'Season',
-                    'First station', 'Last station', 'Route description', 'RouteID']
-ID_COLS = ['Route Direction', 'First station', 'Last station']
+def split(df):
+    """
+    Split initial dataset where each column is a station
+    into a dictionary of datasets of one station each.
+    """
+    # Don't modify original dataframe
+    df = df.copy()
+    # Construct dictionary of dataframes
+    by_station = []
+    for col in df.columns:
+        if col != constants.TIMESTAMP:
+            # Extract column and rename it to target
+            df_station = df.filter([constants.TIMESTAMP, col])
+            df_station.rename(columns={col: constants.TARGET}, inplace=True)
+            # Add column with station name so metadata can be added
+            df_station[constants.STATION] = pd.Categorical(col)
+            # Add dataframe to dictionary
+            by_station.append(df_station)
+    # Concatenate all dataframes into one
+    return pd.concat(by_station, ignore_index=True)
 
-def select_target(df):
+def combine(df):
     """
-    Returns the target column.
+    Undo split of dataset where each column is a station
+    into a single dataframe with stations as columns.
     """
-    return df['Duration']
+    pivot = df.pivot(index=constants.TIMESTAMP, columns=constants.STATION, values=constants.TARGET)
+    return pivot.set_index('timestamp')
+
+def add_metadata(df, df_metadata):
+    """
+    Add metadata to dataframe.
+    """
+    df = df.merge(df_metadata, on=constants.STATION)
+    return df
 
 # Preprocessing
 def preprocess_test(df, df_metadata):
-
-    # TODO transform 
-
+    # Add metadata
+    df = add_metadata(df, df_metadata)
 
     return df
 
@@ -44,11 +71,13 @@ def preprocess_test(df, df_metadata):
 
 def preprocess_train(df, df_metadata):
     # Repeat all preprocessing done on test data
-    df = preprocess_test(df)
-    # Convert arrival time strings to datetime
-    df['Arrival time'] = pd.to_datetime(df['Arrival time'])
-    # Compute arrival time of day
-    df['Arrival TimeOfDay'] = get_time_of_day(df['Arrival time'])
-    # Compute travel duration
-    df['Duration'] = (df['Arrival TimeOfDay'] - df['Departure TimeOfDay']) % (86400)
+    df = preprocess_test(df, df_metadata)
     return df
+    
+    
+    # # Convert arrival time strings to datetime
+    # df['Arrival time'] = pd.to_datetime(df['Arrival time'])
+    # # Compute arrival time of day
+    # df['Arrival TimeOfDay'] = get_time_of_day(df['Arrival time'])
+    # # Compute travel duration
+    # df['Duration'] = (df['Arrival TimeOfDay'] - df['Departure TimeOfDay']) % (86400)

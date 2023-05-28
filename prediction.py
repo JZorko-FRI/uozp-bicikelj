@@ -4,11 +4,14 @@ import multiprocessing as mp
 import numpy as np
 import pandas as pd
 
-from processing import *
-from features import *
+import features
+import utils
+import constants
 
 # TODO check if needed
 import scipy.sparse as sp
+
+# TODO route handling currently not compatible with data
 
 def _predict_route(df_train_route, df_test_route, lr, predictions,
                    route, labeled, verbose, i, total_routes):
@@ -16,27 +19,27 @@ def _predict_route(df_train_route, df_test_route, lr, predictions,
     Perform prediction for a single route.
     """
     # Clear predictions because some workers do multiple routes
-    predictions['PredictedDuration'] = 0
-    df_train_extended = construct_features(df_train_route, df_train_route)
-    X_train = select_features(df_train_extended)
+    predictions[constants.TARGET] = 0
+    df_train_extended = features.construct_features(df_train_route, df_train_route)
+    X_train = features.select_features(df_train_extended)
     X_train_sp = sp.csr_matrix(X_train)
-    # Prepare train target
-    y_train = select_target(df_train_extended)
+    # Prepare train features
+    y_train = features.select_features(df_train_extended)
     # Construct model
     model = lr.fit(X_train_sp, y_train)
     # Prepare test features
-    df_test_extended = construct_features(df_test_route, df_train_route)
-    df_test_features = select_features(df_test_extended)
+    df_test_extended = features.construct_features(df_test_route, df_train_route)
+    df_test_features = features.select_features(df_test_extended)
     # Predict
     y_pred = df_test_features.apply(lambda row: model.predict(np.array(row).reshape(1, -1)), axis=1)
     # Store predictions
-    predictions.loc[predictions['RouteID'] == route, 'PredictedDuration'] = y_pred.tolist()
+    predictions.loc[predictions['RouteID'] == route, constants.TARGET] = y_pred.tolist()
     # Perform evaluation if working with labeled data
     if labeled and verbose:
-        # Prepare test target
-        y_true = select_target(df_test_extended)
+        # Prepare test features
+        y_true = features.select_features(df_test_extended)
         # Evaluate separately
-        mae = MAE(y_true, y_pred)
+        mae = utils.MAE(y_true, y_pred)
         if verbose is True or (not isinstance(verbose, bool) and mae > verbose):
             print(route, f'({i}/{total_routes}):')
             print(f'\tMAE: {mae}')
@@ -44,7 +47,7 @@ def _predict_route(df_train_route, df_test_route, lr, predictions,
     elif verbose:
         print(f'({i:03}/{total_routes}) ', end='\r')
     gc.collect()
-    return predictions['PredictedDuration']
+    return predictions[constants.TARGET]
 
 def _predict_separate(df_train, df_test, lr, *, labeled=False, verbose=False, parralel=True):
     """
@@ -52,7 +55,7 @@ def _predict_separate(df_train, df_test, lr, *, labeled=False, verbose=False, pa
     """
     # Prepare prediction dataset
     predictions = df_test.filter(['Departure time', 'RouteID']).copy()
-    predictions['PredictedDuration'] = 0
+    predictions[constants.TARGET] = 0
     test_unique_directions = df_test['RouteID'].unique()
     train_unique_directions = df_train['RouteID'].unique()
     train_unique_routes = df_train['Route'].unique()
@@ -106,11 +109,11 @@ def _predict_together(df_train, df_test, lr, labeled=False, verbose=False):
     # Prepare prediction dataset
     predictions = df_test.filter(['Departure time']).copy()
     # Construct features
-    df_train_extended = construct_features(df_train, df_train)
-    X_train = select_features(df_train_extended)
+    df_train_extended = features.construct_features(df_train, df_train)
+    X_train = features.select_features(df_train_extended)
     X_train_sp = sp.csr_matrix(X_train)
-    # Prepare train target
-    y_train = select_target(df_train_extended)
+    # Prepare train features
+    y_train = features.select_features(df_train_extended)
     # Train model
     if verbose:
         print('Training model...')
@@ -118,19 +121,19 @@ def _predict_together(df_train, df_test, lr, labeled=False, verbose=False):
     if verbose:
         print('Model trained, starting prediction...')
     # Prepare test features
-    df_test_extended = construct_features(df_test, df_train)
-    df_test_features = select_features(df_test_extended)
+    df_test_extended = features.construct_features(df_test, df_train)
+    df_test_features = features.select_features(df_test_extended)
     # Predict
-    predictions['PredictedDuration'] = model.predict(df_test_features)
+    predictions[constants.TARGET] = model.predict(df_test_features)
     if verbose:
         print('Prediction complete')
-    return predictions['PredictedDuration']
+    return predictions[constants.TARGET]
 
-def predict(df_train, df_test, lr, *, split=True, labeled=False,
-            verbose=False, parralel=True, correction_model=False):
+def predict(df_train, df_test, lr, *, split=False, labeled=False,
+            verbose=False, parralel=True):
     """
     Returns the predictions for the test data based on the train data.
-    Uses features returned from construct_features to predict target in select_target.
+    Uses features returned from construct_features to predict features in select_features.
 
     Parameters
     ----------
@@ -163,21 +166,23 @@ def predict(df_train, df_test, lr, *, split=True, labeled=False,
     else:
         predictions = _predict_together(df_train, df_test, lr, labeled=labeled, verbose=verbose)
 
-    # Do corrections using median value
-    median = np.median(predictions)
+    # TODO evaluate
+    # # Do corrections using median value
+    # median = np.median(predictions)
 
-    difference = np.abs(predictions - median)
-    # Take mean if difference is above threshold, or if prediction is negative
-    predictions[(difference > 2000) | (predictions < 0)] = median
+    # difference = np.abs(predictions - median)
+    # # Take mean if difference is above threshold, or if prediction is negative
+    # predictions[(difference > 2000) | (predictions < 0)] = median
 
     # Evaluate end result
     if labeled:
-        y_true = select_target(df_test)
+        y_true = features.select_features(df_test)
         print(y_true[y_true < 0])
-        print('Overall MAE:', MAE(y_true, predictions))
+        print('Overall MAE:', utils.MAE(y_true, predictions))
 
     # Return arrival time computed from predicted duration
-    final_predictions = df_test['Departure time'] + number_to_timedelta(predictions)
+    final_predictions = df_test['Departure time'] + utils.number_to_timedelta(predictions)
+    
     # Required output format is microseconds
     return final_predictions.astype('datetime64[μs]')
 
@@ -185,13 +190,13 @@ class PredictionModel():
     """
     Class for standardising usage of different prediction models.
     """
-    def __init__(self, model, split=True, correction_model=None) -> None:
+    def __init__(self, model, split=constants.STATION) -> None:
         self.model = model
+        if split and type(split) not in (str, list[str], None):
+            raise ValueError('Parameter split must be a string or list of strings')
         self.split = split
-        self.correction_model = correction_model
 
     def __call__(self, df_train, df_test, labeled=False, verbose=False, parallel=True):
         return predict(df_train, df_test, self.model,
                        split=self.split, labeled=labeled,
-                       verbose=verbose, parralel=parallel,
-                       correction_model=self.correction_model)
+                       verbose=verbose, parralel=parallel)

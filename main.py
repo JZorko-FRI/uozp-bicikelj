@@ -11,6 +11,9 @@ from sklearn.linear_model import Ridge
 from sklearn.neural_network import MLPRegressor
 from xgboost import XGBRegressor
 
+import processing
+import prediction
+
 np.set_printoptions(suppress=True)
 
 if __name__ == '__main__':
@@ -27,16 +30,20 @@ if __name__ == '__main__':
     df_train_raw = pd.read_csv('data/bicikelj_train.csv', sep=',')
     df_metadata = pd.read_csv('data/bicikelj_metadata.csv', sep=',')
 
+    # Split data by station
+    df_test_split = processing.split(df_test_raw)
+    df_train_split = processing.split(df_train_raw)
+
     # Preprocess data and add features
-    df_test = preprocess_test(df_test_raw, df_metadata)
-    df_train = preprocess_train(df_train_raw, df_metadata)
+    df_test = processing.preprocess_test(df_test_split, df_metadata)
+    df_train = processing.preprocess_train(df_train_split, df_metadata)
 
     # Set the used prediction method
     # model = PredictionModel(
     #     Ridge(alpha=1, random_state=42),
     #     split=True
     # )
-    model = PredictionModel(
+    model = prediction.PredictionModel(
         XGBRegressor(n_estimators=50, nthread=1, random_state=42),
         split=True
     )

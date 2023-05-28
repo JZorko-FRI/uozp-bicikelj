@@ -1,5 +1,8 @@
 requests
 numpy
 pandas
-sklearn
+scikit-learn
 xgboost
+tqdm
+seaborn
+matplotlib
