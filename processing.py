@@ -72,9 +72,9 @@ def preprocess_test(df : pd.DataFrame, df_metadata : pd.DataFrame, df_weather, d
     # Add metadata
     df = add_metadata(df, df_metadata)
     # Add weather data
-    df = add_weather_data(df, df_weather)
+    # df = add_weather_data(df, df_weather)
     # Add distance data
-    df = add_distance_data(df, df_distances)
+    # df = add_distance_data(df, df_distances)
 
     # Construct this feature in preprocessing so it can be used for splitting
     df['DayOfWeek'] = features.get_day_of_week(df)

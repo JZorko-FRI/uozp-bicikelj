@@ -380,8 +380,8 @@ multi_features = {
     'BinaryPartOfDay': get_binary_part_of_day,
     # 'TimeOfDayPoly': get_time_of_day_poly,
     # 'TimeOfDayMin': get_time_of_day_min_poly,
-    'Weather': get_weather_data,
-    'Distances': get_distances,
+    # 'Weather': get_weather_data,
+    # 'Distances': get_distances,
 }
 combination_features = {
     'BinaryQuarterHourDay': ['BinaryQuarterHour', 'BinaryDayOfWeek'],
