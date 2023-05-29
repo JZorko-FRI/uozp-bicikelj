@@ -189,7 +189,7 @@ def get_binary_hours(df, df_train=None):
 
 def get_binary_quarterhours(df, df_train=None):
     """
-    Returns the binarised quarterhours of the day, one column for each hour.
+    Returns the binarised quarterhours of the day, one column for each quarter hour.
     """
     num_rows = df.shape[0]
     columns = list(range(0, 24 * 4))
@@ -200,9 +200,22 @@ def get_binary_quarterhours(df, df_train=None):
     return pd.DataFrame(matrix, columns=columns, dtype=int)
 
 
+def get_binary_10_min(df, df_train=None):
+    """
+    Returns the binarised 10min increments of the day, one column for each increment.
+    """
+    num_rows = df.shape[0]
+    columns = list(range(0, 24 * 6))
+    num_cols = len(columns)
+    matrix = np.zeros((num_rows, num_cols))
+    for mins in columns:
+        matrix[:, mins - 1] = (df['TimeOfDay10Min'] == mins).astype(int)
+    return pd.DataFrame(matrix, columns=columns, dtype=int)
+
+
 def get_binary_5min(df, df_train=None):
     """
-    Returns the binarised 5min increments of the day, one column for each hour.
+    Returns the binarised 5min increments of the day, one column for each increment.
     """
     num_rows = df.shape[0]
     columns = list(range(0, 24 * 12))
@@ -362,6 +375,7 @@ multi_features = {
     'BinaryMonth': get_binary_months,
     # 'BinaryHour': get_binary_hours,
     'BinaryQuarterHour': get_binary_quarterhours,
+    # 'Binary10Min': get_binary_10_min,
     # 'Binary5min': get_binary_5min,
     'BinaryPartOfDay': get_binary_part_of_day,
     # 'TimeOfDayPoly': get_time_of_day_poly,
@@ -370,7 +384,9 @@ multi_features = {
     'Distances': get_distances,
 }
 combination_features = {
-    'BinaryQuarterHourWeek': ['BinaryQuarterHour', 'BinaryDayOfWeek'],
+    'BinaryQuarterHourDay': ['BinaryQuarterHour', 'BinaryDayOfWeek'],
+    # 'Binary10MinDay': ['Binary10Min', 'BinaryDayOfWeek'],
+    # 'Binary5MinDay': ['Binary5Min', 'BinaryDayOfWeek'],
 }
 precomputed_features = {
     # 'TimeOfDay',
@@ -415,6 +431,7 @@ def construct_features(df, df_train):
             i += 1
             if i % 50 == 0:
                 df = df.copy()
+    # Mark already constructed features for use
     used_features.update(precomputed_features)
     return df
 

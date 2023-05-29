@@ -84,6 +84,7 @@ def preprocess_test(df : pd.DataFrame, df_metadata : pd.DataFrame, df_weather, d
     df['TimeOfDay'] = utils.get_time_of_day(df[constants.TIMESTAMP])
     df['TimeOfDayMin'] = utils.get_time_of_day_minutes(df[constants.TIMESTAMP])
     df['TimeOfDay5Min'] = df['TimeOfDayMin'] // (5 * 60)
+    df['TimeOfDay10Min'] = df['TimeOfDayMin'] // (10 * 60)
     df['TimeOfDayQuarterHour'] = df['TimeOfDayMin'] // (15 * 60)
     df['TimeOfDayHour'] = df[constants.TIMESTAMP].dt.hour
     
